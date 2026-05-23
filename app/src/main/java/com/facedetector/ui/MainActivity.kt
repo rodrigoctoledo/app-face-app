@@ -121,18 +121,19 @@ class MainActivity : AppCompatActivity() {
             context = this,
             lifecycleOwner = this,
             previewView = binding.previewView,
+            onFrameReady = { imageProxy ->
+                val rotation = imageProxy.imageInfo.rotationDegrees
+                val w = imageProxy.width
+                val h = imageProxy.height
+                runOnUiThread {
+                    binding.overlayView.imageWidth    = w
+                    binding.overlayView.imageHeight   = h
+                    binding.overlayView.imageRotation = rotation
+                }
+                detectorManager.processFrame(imageProxy)
+            },
             onRecordingChanged = { updateRecordState() }
-        ) { imageProxy ->
-            val rotation = imageProxy.imageInfo.rotationDegrees
-            val w = imageProxy.width
-            val h = imageProxy.height
-            runOnUiThread {
-                binding.overlayView.imageWidth    = w
-                binding.overlayView.imageHeight   = h
-                binding.overlayView.imageRotation = rotation
-            }
-            detectorManager.processFrame(imageProxy)
-        }
+        )
 
         cameraManager.startCamera()
         updateButtonStates()
