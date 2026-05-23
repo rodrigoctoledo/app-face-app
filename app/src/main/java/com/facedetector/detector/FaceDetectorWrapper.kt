@@ -44,13 +44,18 @@ class FaceDetectorWrapper(private val source: DetectorSource) {
 
                 detector.process(inputImage)
                     .addOnSuccessListener { faces ->
+                        if (faces.isNotEmpty()) {
+                            Log.d("FaceDetectorWrapper", "Detected ${faces.size} faces (mode: ${source.name})")
+                        }
                         val results = faces.map { face -> face.toDetectionResult(source) }
                         cont.resume(results)
                     }
                     .addOnFailureListener { e ->
+                        Log.e("FaceDetectorWrapper", "Detection failed", e)
                         cont.resumeWithException(e)
                     }
             } catch (e: Exception) {
+                Log.e("FaceDetectorWrapper", "Detection error", e)
                 cont.resumeWithException(e)
             }
         }

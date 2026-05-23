@@ -54,22 +54,32 @@ class FaceOverlayView @JvmOverloads constructor(
         val viewW = width.toFloat()
         val viewH = height.toFloat()
 
-        // ML Kit already reports boxes in the rotated image space.
-        // We only need to scale them into the center-cropped preview.
-        val (effW, effH) = if (imageRotation == 90 || imageRotation == 270)
-            Pair(imageHeight.toFloat(), imageWidth.toFloat())
-        else
-            Pair(imageWidth.toFloat(), imageHeight.toFloat())
+        if (viewW <= 0 || viewH <= 0 || imageWidth <= 0 || imageHeight <= 0) {
+            return rect
+        }
 
-        val scale = maxOf(viewW / effW, viewH / effH)
-        val dx = (viewW - effW * scale) / 2f
-        val dy = (viewH - effH * scale) / 2f
+        // ML Kit reports boxes in the image coordinate space
+        // We need to scale and translate them to the view coordinate space
+        // considering the preview's scaleType (fitCenter)
+        
+        val imageAspect = imageWidth.toFloat() / imageHeight
+        val viewAspect = viewW / viewH
+        
+        val (scale, offsetX, offsetY) = if (imageAspect > viewAspect) {
+            // Image wider than view -> fit width
+            val s = viewW / imageWidth
+            Triple(s, 0f, (viewH - imageHeight * s) / 2f)
+        } else {
+            // Image taller than view -> fit height
+            val s = viewH / imageHeight
+            Triple(s, (viewW - imageWidth * s) / 2f, 0f)
+        }
 
         return RectF(
-            rect.left * scale + dx,
-            rect.top * scale + dy,
-            rect.right * scale + dx,
-            rect.bottom * scale + dy
+            rect.left * scale + offsetX,
+            rect.top * scale + offsetY,
+            rect.right * scale + offsetX,
+            rect.bottom * scale + offsetY
         )
     }
 

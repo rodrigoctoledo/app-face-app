@@ -53,9 +53,9 @@ class CameraManager(
 
     // Resolution fallback list: try 720p → 480p → 1080p
     private val resolutionCandidates = listOf(
-        Size(1280, 720),
-        Size(640, 480),
-        Size(1920, 1080)
+        Size(1280, 720),   // 16:9
+        Size(640, 480),    // 4:3
+        Size(1920, 1080)   // 16:9
     )
 
     fun startCamera() {
@@ -74,21 +74,30 @@ class CameraManager(
         val provider = cameraProvider ?: return
         val rotation = previewView.display?.rotation ?: Surface.ROTATION_0
 
+        // Add aspect ratio configuration
+        val aspectRatio = AspectRatio.RATIO_16_9
+
         val preview = Preview.Builder()
-            .setTargetResolution(resolutionCandidates[0])
+            .setTargetAspectRatio(aspectRatio)
             .setTargetRotation(rotation)
             .build()
             .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
         val imageAnalysis = ImageAnalysis.Builder()
-            .setTargetResolution(resolutionCandidates[0])
+            .setTargetAspectRatio(aspectRatio)
             .setTargetRotation(rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
             .build()
             .also { analysis ->
                 analysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                    onFrameReady(imageProxy)
+                    try {
+                        onFrameReady(imageProxy)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Frame processing error", e)
+                    } finally {
+                        imageProxy.close()
+                    }
                 }
             }
 
@@ -107,76 +116,95 @@ class CameraManager(
                 imageAnalysis,
                 capture
             )
+            Log.d(TAG, "Camera bound successfully with aspect ratio $aspectRatio")
         } catch (e: Exception) {
-            Log.w(TAG, "Camera bind failed at highest resolution, trying fallback", e)
-            // Try lower resolution on failure
-            tryFallbackResolution(provider, preview, imageAnalysis, cameraSelector, 1)
+            Log.w(TAG, "Camera bind failed, trying fallback", e)
+            tryFallbackResolution(provider, rotation)
         }
     }
 
     private fun tryFallbackResolution(
         provider: ProcessCameraProvider,
-        preview: Preview,
-        imageAnalysis: ImageAnalysis,
-        cameraSelector: CameraSelector,
-        resIndex: Int
+        rotation: Int
     ) {
-        if (resIndex >= resolutionCandidates.size) {
-            Log.e(TAG, "All camera resolution candidates failed")
-            bindWithoutVideoCapture(provider, preview, imageAnalysis, cameraSelector)
-            return
-        }
-        val res = resolutionCandidates[resIndex]
-
-        val fallbackPreview = Preview.Builder()
-            .setTargetResolution(res)
-            .setTargetRotation(previewView.display?.rotation ?: Surface.ROTATION_0)
-            .build()
-            .also { it.setSurfaceProvider(previewView.surfaceProvider) }
-
-        val fallbackAnalysis = ImageAnalysis.Builder()
-            .setTargetResolution(res)
-            .setTargetRotation(previewView.display?.rotation ?: Surface.ROTATION_0)
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-            .build()
-            .also { analysis ->
-                analysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                    onFrameReady(imageProxy)
-                }
-            }
-
         try {
             provider.unbindAll()
+            
+            val preview = Preview.Builder()
+                .setTargetRotation(rotation)
+                .build()
+                .also { it.setSurfaceProvider(previewView.surfaceProvider) }
+
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setTargetRotation(rotation)
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                .build()
+                .also { analysis ->
+                    analysis.setAnalyzer(analysisExecutor) { imageProxy ->
+                        try {
+                            onFrameReady(imageProxy)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Frame processing error", e)
+                        } finally {
+                            imageProxy.close()
+                        }
+                    }
+                }
+
             val capture = VideoCapture.withOutput(recorder).also {
-                it.targetRotation = previewView.display?.rotation ?: Surface.ROTATION_0
+                it.targetRotation = rotation
                 videoCapture = it
             }
+
             provider.bindToLifecycle(
                 lifecycleOwner,
-                cameraSelector,
-                fallbackPreview,
-                fallbackAnalysis,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                imageAnalysis,
                 capture
             )
+            Log.d(TAG, "Camera bound successfully with fallback configuration")
         } catch (e: Exception) {
-            Log.w(TAG, "Camera bind failed at fallback resolution $res, trying next", e)
-            tryFallbackResolution(provider, fallbackPreview, fallbackAnalysis, cameraSelector, resIndex + 1)
+            Log.e(TAG, "Fallback camera bind also failed", e)
+            bindWithoutVideoCapture(provider, rotation)
         }
     }
 
     private fun bindWithoutVideoCapture(
         provider: ProcessCameraProvider,
-        preview: Preview,
-        imageAnalysis: ImageAnalysis,
-        cameraSelector: CameraSelector
+        rotation: Int
     ) {
         try {
             provider.unbindAll()
+            
+            val preview = Preview.Builder()
+                .setTargetRotation(rotation)
+                .build()
+                .also { it.setSurfaceProvider(previewView.surfaceProvider) }
+
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setTargetRotation(rotation)
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                .build()
+                .also { analysis ->
+                    analysis.setAnalyzer(analysisExecutor) { imageProxy ->
+                        try {
+                            onFrameReady(imageProxy)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Frame processing error", e)
+                        } finally {
+                            imageProxy.close()
+                        }
+                    }
+                }
+
             videoCapture = null
-            provider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
+            provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis)
+            Log.d(TAG, "Camera bound without video capture")
         } catch (e: Exception) {
-            Log.e(TAG, "Camera bind failed without video capture", e)
+            Log.e(TAG, "All camera configurations failed", e)
         }
     }
 
