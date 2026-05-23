@@ -122,15 +122,20 @@ class MainActivity : AppCompatActivity() {
             lifecycleOwner = this,
             previewView = binding.previewView,
             onFrameReady = { imageProxy ->
-                val rotation = imageProxy.imageInfo.rotationDegrees
-                val w = imageProxy.width
-                val h = imageProxy.height
-                runOnUiThread {
-                    binding.overlayView.imageWidth    = w
-                    binding.overlayView.imageHeight   = h
-                    binding.overlayView.imageRotation = rotation
+                try {
+                    val rotation = imageProxy.imageInfo.rotationDegrees
+                    val w = imageProxy.width
+                    val h = imageProxy.height
+                    runOnUiThread {
+                        binding.overlayView.imageWidth    = w
+                        binding.overlayView.imageHeight   = h
+                        binding.overlayView.imageRotation = rotation
+                    }
+                    detectorManager.processFrame(imageProxy)
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Frame processing error", e)
+                    imageProxy.close()
                 }
-                detectorManager.processFrame(imageProxy)
             },
             onRecordingChanged = { updateRecordState() }
         )

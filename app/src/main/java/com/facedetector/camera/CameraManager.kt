@@ -91,13 +91,7 @@ class CameraManager(
             .build()
             .also { analysis ->
                 analysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                    try {
-                        onFrameReady(imageProxy)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Frame processing error", e)
-                    } finally {
-                        imageProxy.close()
-                    }
+                    onFrameReady(imageProxy)
                 }
             }
 
@@ -142,13 +136,7 @@ class CameraManager(
                 .build()
                 .also { analysis ->
                     analysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                        try {
-                            onFrameReady(imageProxy)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Frame processing error", e)
-                        } finally {
-                            imageProxy.close()
-                        }
+                        onFrameReady(imageProxy)
                     }
                 }
 
@@ -190,13 +178,7 @@ class CameraManager(
                 .build()
                 .also { analysis ->
                     analysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                        try {
-                            onFrameReady(imageProxy)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Frame processing error", e)
-                        } finally {
-                            imageProxy.close()
-                        }
+                        onFrameReady(imageProxy)
                     }
                 }
 
