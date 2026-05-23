@@ -97,6 +97,18 @@
             android:backgroundTint="#888888"
             android:layout_margin="4dp" />
 
+        <Button
+            android:id="@+id/btnRecord"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="REC"
+            android:textSize="12sp"
+            android:padding="8dp"
+            android:textColor="@android:color/white"
+            android:backgroundTint="#B00020"
+            android:layout_margin="4dp" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -9,8 +9,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.CoroutineScope
 import com.facedetector.camera.CameraManager
 import com.facedetector.camera.ImageSaver
 import com.facedetector.databinding.ActivityMainBinding
@@ -72,6 +70,20 @@ class MainActivity : AppCompatActivity() {
             binding.overlayView.showLandmarks = !binding.overlayView.showLandmarks
             binding.btnLandmarks.alpha = if (binding.overlayView.showLandmarks) 1f else 0.5f
         }
+        binding.btnRecord.setOnClickListener {
+            if (cameraManager.isRecording) {
+                cameraManager.stopRecording()
+                Toast.makeText(this, "Gravação parada", Toast.LENGTH_SHORT).show()
+            } else {
+                cameraManager.startRecording()
+                Toast.makeText(
+                    this,
+                    if (cameraManager.isRecording) "Gravação iniciada" else "Falha ao iniciar gravação",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            updateRecordState()
+        }
     }
 
     private fun updateButtonStates() {
@@ -79,6 +91,20 @@ class MainActivity : AppCompatActivity() {
         binding.btnDual.alpha     = if (mode == DisplayMode.DUAL)     1f else 0.5f
         binding.btnAccurate.alpha = if (mode == DisplayMode.ACCURATE) 1f else 0.5f
         binding.btnFast.alpha     = if (mode == DisplayMode.FAST)     1f else 0.5f
+    }
+
+    private fun updateRecordState() {
+        binding.btnRecord.isEnabled = cameraManager.canRecord
+        binding.btnRecord.alpha = when {
+            !cameraManager.canRecord -> 0.3f
+            cameraManager.isRecording -> 1f
+            else -> 0.5f
+        }
+        binding.btnRecord.text = when {
+            !cameraManager.canRecord -> "SEM REC"
+            cameraManager.isRecording -> "STOP"
+            else -> "REC"
+        }
     }
 
     private fun startCameraAndDetection() {
@@ -94,7 +120,8 @@ class MainActivity : AppCompatActivity() {
         cameraManager = CameraManager(
             context = this,
             lifecycleOwner = this,
-            previewView = binding.previewView
+            previewView = binding.previewView,
+            onRecordingChanged = { updateRecordState() }
         ) { imageProxy ->
             val rotation = imageProxy.imageInfo.rotationDegrees
             val w = imageProxy.width
@@ -109,6 +136,7 @@ class MainActivity : AppCompatActivity() {
 
         cameraManager.startCamera()
         updateButtonStates()
+        updateRecordState()
     }
 
     override fun onDestroy() {

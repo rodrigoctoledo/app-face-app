@@ -54,7 +54,8 @@ class FaceOverlayView @JvmOverloads constructor(
         val viewW = width.toFloat()
         val viewH = height.toFloat()
 
-        // After rotation, the effective image dimensions swap for 90/270
+        // ML Kit already reports boxes in the rotated image space.
+        // We only need to scale them into the center-cropped preview.
         val (effW, effH) = if (imageRotation == 90 || imageRotation == 270)
             Pair(imageHeight.toFloat(), imageWidth.toFloat())
         else
@@ -64,50 +65,12 @@ class FaceOverlayView @JvmOverloads constructor(
         val dx = (viewW - effW * scale) / 2f
         val dy = (viewH - effH * scale) / 2f
 
-        // Transform box coordinates based on rotation
-        val left: Float
-        val top: Float
-        val right: Float
-        val bottom: Float
-
-        when (imageRotation) {
-            90 -> {
-                left  = viewH - rect.bottom * scale - dy + dx - (viewH - viewW) / 2f
-                top   = rect.left * scale + dx - (viewW - viewH) / 2f
-                right = viewH - rect.top * scale - dy + dx - (viewH - viewW) / 2f
-                bottom = rect.right * scale + dx - (viewW - viewH) / 2f
-                return RectF(
-                    rect.left * scale + dx,
-                    viewH - rect.bottom * scale - dy,
-                    rect.right * scale + dx,
-                    viewH - rect.top * scale - dy
-                )
-            }
-            270 -> {
-                return RectF(
-                    viewW - rect.right * scale - dx,
-                    rect.top * scale + dy,
-                    viewW - rect.left * scale - dx,
-                    rect.bottom * scale + dy
-                )
-            }
-            180 -> {
-                return RectF(
-                    viewW - rect.right * scale - dx,
-                    viewH - rect.bottom * scale - dy,
-                    viewW - rect.left * scale - dx,
-                    viewH - rect.top * scale - dy
-                )
-            }
-            else -> {
-                return RectF(
-                    rect.left * scale + dx,
-                    rect.top * scale + dy,
-                    rect.right * scale + dx,
-                    rect.bottom * scale + dy
-                )
-            }
-        }
+        return RectF(
+            rect.left * scale + dx,
+            rect.top * scale + dy,
+            rect.right * scale + dx,
+            rect.bottom * scale + dy
+        )
     }
 
     override fun onDraw(canvas: Canvas) {

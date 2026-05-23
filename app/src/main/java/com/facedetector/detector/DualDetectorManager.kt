@@ -1,9 +1,16 @@
 package com.facedetector.detector
 
 import android.graphics.RectF
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import com.facedetector.camera.ImageSaver
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
@@ -13,6 +20,10 @@ class DualDetectorManager(
     private val imageSaver: ImageSaver,
     private val onResultsReady: (List<DetectionResult>, Stats) -> Unit
 ) {
+    companion object {
+        private const val TAG = "DualDetectorManager"
+    }
+
     data class Stats(
         val pipelineFps: Float,
         val accurateFps: Float,
@@ -53,17 +64,7 @@ class DualDetectorManager(
         }
 
         val runAccurate = (frameCount % 3 == 0) || cachedAccurateResults.isEmpty()
-
-        // Capture bytes for saving before closing imageProxy
-        val imageBytes: ByteArray? = try {
-            imageProxyToJpegBytes(imageProxy)
-        } catch (e: Exception) {
-            null
-        }
-
         val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-        val width = imageProxy.width
-        val height = imageProxy.height
 
         scope.launch {
             try {
@@ -87,10 +88,14 @@ class DualDetectorManager(
                 val merged = mergeResults(accurateResults, fastResults)
                 val filtered = filterByDisplayMode(merged)
 
-                val hasFaces = merged.isNotEmpty()
-                if (hasFaces && imageBytes != null) {
-                    scope.launch(Dispatchers.IO) {
-                        imageSaver.saveFrame(imageBytes, rotationDegrees)
+                if (merged.isNotEmpty()) {
+                    try {
+                        withContext(Dispatchers.IO) {
+                            val imageBytes = imageProxyToJpegBytes(imageProxy)
+                            imageSaver.saveFrame(imageBytes, rotationDegrees)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to save detected face frame", e)
                     }
                 }
 
@@ -108,7 +113,7 @@ class DualDetectorManager(
                     onResultsReady(filtered, stats)
                 }
             } catch (e: Exception) {
-                // Silently handle errors from closed imageProxy etc.
+                Log.e(TAG, "Frame processing failed", e)
             } finally {
                 imageProxy.close()
             }
@@ -116,18 +121,46 @@ class DualDetectorManager(
     }
 
     private fun imageProxyToJpegBytes(imageProxy: ImageProxy): ByteArray {
-        val yBuffer = imageProxy.planes[0].buffer
-        val uBuffer = imageProxy.planes[1].buffer
-        val vBuffer = imageProxy.planes[2].buffer
+        val nv21 = ByteArray(imageProxy.width * imageProxy.height * 3 / 2)
+        var outputOffset = 0
 
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
+        val yPlane = imageProxy.planes[0]
+        val yBuffer = yPlane.buffer.duplicate()
+        val yRowStride = yPlane.rowStride
+        val yPixelStride = yPlane.pixelStride
+        val yRow = ByteArray(yRowStride)
 
-        val nv21 = ByteArray(ySize + uSize + vSize)
-        yBuffer.get(nv21, 0, ySize)
-        vBuffer.get(nv21, ySize, vSize)
-        uBuffer.get(nv21, ySize + vSize, uSize)
+        for (row in 0 until imageProxy.height) {
+            yBuffer.get(yRow, 0, minOf(yRowStride, yBuffer.remaining()))
+            var col = 0
+            while (col < imageProxy.width) {
+                nv21[outputOffset++] = yRow[col * yPixelStride]
+                col++
+            }
+        }
+
+        val uPlane = imageProxy.planes[1]
+        val vPlane = imageProxy.planes[2]
+        val uBuffer = uPlane.buffer.duplicate()
+        val vBuffer = vPlane.buffer.duplicate()
+        val uRowStride = uPlane.rowStride
+        val vRowStride = vPlane.rowStride
+        val uPixelStride = uPlane.pixelStride
+        val vPixelStride = vPlane.pixelStride
+        val uRow = ByteArray(uRowStride)
+        val vRow = ByteArray(vRowStride)
+
+        for (row in 0 until imageProxy.height / 2) {
+            uBuffer.get(uRow, 0, minOf(uRowStride, uBuffer.remaining()))
+            vBuffer.get(vRow, 0, minOf(vRowStride, vBuffer.remaining()))
+
+            var col = 0
+            while (col < imageProxy.width / 2) {
+                nv21[outputOffset++] = vRow[col * vPixelStride]
+                nv21[outputOffset++] = uRow[col * uPixelStride]
+                col++
+            }
+        }
 
         val yuvImage = android.graphics.YuvImage(
             nv21,

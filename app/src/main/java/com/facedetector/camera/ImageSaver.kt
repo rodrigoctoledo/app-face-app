@@ -2,29 +2,69 @@ package com.facedetector.camera
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class ImageSaver(private val context: Context) {
 
+    companion object {
+        private const val TAG = "ImageSaver"
+    }
+
     private val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US)
     private val folderName = "FaceDetector"
 
     fun saveFrame(jpegBytes: ByteArray, rotationDegrees: Int) {
         val filename = "face_${dateFormat.format(Date())}.jpg"
+        val bytesToSave = if (rotationDegrees % 360 == 0) {
+            jpegBytes
+        } else {
+            rotateJpegBytes(jpegBytes, rotationDegrees)
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            saveViaMediaStore(jpegBytes, filename)
+            saveViaMediaStore(bytesToSave, filename)
         } else {
-            saveViaFile(jpegBytes, filename)
+            saveViaFile(bytesToSave, filename)
         }
+    }
+
+    private fun rotateJpegBytes(jpegBytes: ByteArray, rotationDegrees: Int): ByteArray {
+        val sourceBitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+            ?: return jpegBytes
+
+        val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+        val rotatedBitmap = Bitmap.createBitmap(
+            sourceBitmap,
+            0,
+            0,
+            sourceBitmap.width,
+            sourceBitmap.height,
+            matrix,
+            true
+        )
+
+        val output = ByteArrayOutputStream()
+        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, output)
+
+        if (rotatedBitmap !== sourceBitmap) {
+            rotatedBitmap.recycle()
+        }
+        sourceBitmap.recycle()
+
+        return output.toByteArray()
     }
 
     private fun saveViaMediaStore(jpegBytes: ByteArray, filename: String) {
@@ -36,16 +76,24 @@ class ImageSaver(private val context: Context) {
         }
 
         val resolver = context.contentResolver
-        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues) ?: return
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            ?: run {
+                Log.e(TAG, "MediaStore insert returned null for $filename")
+                return
+            }
 
         try {
-            resolver.openOutputStream(uri)?.use { outputStream ->
-                outputStream.write(jpegBytes)
+            val outputStream = resolver.openOutputStream(uri)
+                ?: throw IllegalStateException("MediaStore output stream was null")
+
+            outputStream.use { stream ->
+                stream.write(jpegBytes)
             }
             contentValues.clear()
             contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
             resolver.update(uri, contentValues, null, null)
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to save image via MediaStore", e)
             resolver.delete(uri, null, null)
         }
     }
@@ -66,7 +114,7 @@ class ImageSaver(private val context: Context) {
                 null
             )
         } catch (e: Exception) {
-            // Handle silently — do not crash the camera pipeline
+            Log.e(TAG, "Failed to save image via file", e)
         }
     }
 }

@@ -1,12 +1,13 @@
 # FaceDetector App
 
-App Android nativo em Kotlin para detecção de silhuetas de rostos em tempo real via ML Kit, com auto-salvamento de frames na galeria.
+App Android nativo em Kotlin para detecção de rostos em tempo real via ML Kit, com auto-salvamento de frames na galeria e gravação da câmera traseira.
 
 ## Funcionalidades
 
 - Detecção dual em paralelo: modo `ACCURATE` (azul) + `FAST` (verde), com consenso `CONSENSUS` (magenta)
 - IoU > 35% para fundir detecções dos dois modelos
 - Auto-save automático de frames limpos em `Pictures/FaceDetector/` sempre que um rosto for detectado
+- Gravação de vídeo da câmera traseira via botão `REC`
 - HUD com FPS do pipeline e de cada detector
 - Funciona 100% offline — modelo ML Kit embutido no APK
 - Suporte a Android 8.0+ (API 26+)
@@ -45,6 +46,8 @@ Após o push, o GitHub Actions compila automaticamente:
 **Actions → último workflow → Artifacts → app-debug**
 
 O APK fica disponível por 7 dias.
+
+No app, use **REC** para iniciar/parar a gravação da câmera.
 
 ---
 
