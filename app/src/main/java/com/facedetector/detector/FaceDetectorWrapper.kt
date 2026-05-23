@@ -1,6 +1,7 @@
 package com.facedetector.detector
 
 import android.graphics.RectF
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
