@@ -50,7 +50,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setupButtons()
         if (allPermissionsGranted()) startCameraAndDetection()
         else permissionLauncher.launch(requiredPermissions)
     }
@@ -89,6 +88,8 @@ class MainActivity : AppCompatActivity() {
             binding.overlayView.results = results
             binding.hudView.stats = stats
         }
+
+        setupButtons()
 
         cameraManager = CameraManager(
             context = this,
