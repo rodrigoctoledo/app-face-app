@@ -52,7 +52,8 @@ class HudView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val s = stats ?: return
+        if (stats == null) return
+        val s = stats!!
 
         val lines = listOf(
             "PIPELINE : ${s.pipelineFps.format(1)} fps",
