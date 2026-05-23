@@ -14,6 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import com.facedetector.camera.CameraManager
 import com.facedetector.camera.ImageSaver
 import com.facedetector.databinding.ActivityMainBinding
+import com.facedetector.detector.DisplayMode
+import com.facedetector.detector.DualDetectorManager
 import com.facedetector.detector.StorageManager
 import com.facedetector.detector.VideoRecorder
 
