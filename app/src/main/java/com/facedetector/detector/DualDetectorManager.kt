@@ -11,7 +11,6 @@ enum class DisplayMode { DUAL, ACCURATE, FAST }
 
 class DualDetectorManager(
     private val imageSaver: ImageSaver,
-    private val videoRecorder: VideoRecorder? = null,
     private val onResultsReady: (List<DetectionResult>, Stats) -> Unit
 ) {
     data class Stats(

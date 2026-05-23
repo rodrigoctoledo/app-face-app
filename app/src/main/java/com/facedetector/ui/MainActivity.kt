@@ -16,16 +16,12 @@ import com.facedetector.camera.ImageSaver
 import com.facedetector.databinding.ActivityMainBinding
 import com.facedetector.detector.DisplayMode
 import com.facedetector.detector.DualDetectorManager
-import com.facedetector.detector.StorageManager
-import com.facedetector.detector.VideoRecorder
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var cameraManager: CameraManager
     private lateinit var detectorManager: DualDetectorManager
-    private lateinit var storageManager: StorageManager
-    private lateinit var videoRecorder: VideoRecorder
 
     private val requiredPermissions: Array<String>
         get() = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
@@ -88,15 +84,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun startCameraAndDetection() {
         val imageSaver = ImageSaver(applicationContext)
-        storageManager = StorageManager(applicationContext)
-        videoRecorder = VideoRecorder(applicationContext, storageManager, lifecycleScope)
 
-        detectorManager = DualDetectorManager(imageSaver, videoRecorder) { results, stats ->
+        detectorManager = DualDetectorManager(imageSaver) { results, stats ->
             binding.overlayView.results = results
             binding.hudView.stats = stats
         }
-
-        videoRecorder.start()
 
         cameraManager = CameraManager(
             context = this,
@@ -120,7 +112,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        videoRecorder.stop()
         if (::detectorManager.isInitialized) detectorManager.shutdown()
         if (::cameraManager.isInitialized) cameraManager.shutdown()
     }
